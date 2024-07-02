@@ -1,8 +1,3 @@
-variable "region" {
-  description = "The AWS region to deploy in"
-  default     = "us-east-1"
-}
-
 variable "key_name" {
   description = "The name of the SSH key pair"
   default     = "my_new_ec2_key"
@@ -20,7 +15,7 @@ variable "core_instance_type" {
 
 variable "core_instance_count" {
   description = "The number of core instances in the EMR cluster"
-  default     = 2
+  default     = 3
 }
 
 variable "emr_instance_profile" {
@@ -30,5 +25,24 @@ variable "emr_instance_profile" {
 
 variable "environment" {
   description = "The environment for the EMR cluster (e.g., dev, prod)"
+  type        = string
+}
+
+variable "logs_uri" {
+  description = "The logs url for the EMR cluster"
+}
+
+variable "pyspark_app_s3_path" {
+  description = "The s3 location of the pyspark app"
+
+}
+
+variable "emr_service_role" {
+  description = "EMR Service role"
+  type        = string
+}
+
+variable "emr_ec2_service_role" {
+  description = "EMR Ec2 Service role"
   type        = string
 }

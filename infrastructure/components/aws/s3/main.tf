@@ -1,5 +1,6 @@
 resource "aws_s3_bucket" "bucket" {
-  bucket = var.bucket_name
+  bucket        = var.bucket_name
+  force_destroy = var.force_destroy
 
   tags = {
     Environment = var.environment
@@ -7,9 +8,3 @@ resource "aws_s3_bucket" "bucket" {
   }
 }
 
-resource "aws_s3_object" "dataset" {
-depends_on = [aws_s3_bucket.bucket]
-  bucket = aws_s3_bucket.bucket.bucket
-  key    = "olist_public_dataset.xlsx"
-  source = "${path.module}/files/olist_public_dataset.xlsx"  # Local path to the file to upload
-}

@@ -1,46 +1,36 @@
-# Define EMR Service Role
-resource "aws_iam_role" "emr_service_role" {
-  name               = "EMR_DefaultRole"
-  assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "elasticmapreduce.amazonaws.com"
-        },
-        "Action": "sts:AssumeRole"
-      }
-    ]
-  })
-}
 
 resource "aws_iam_role_policy_attachment" "emr_service_policy_attachment" {
-  role       = aws_iam_role.emr_service_role.name
+  role       = var.emr_service_role
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonElasticMapReduceRole"
 }
 
-# IAM role for EMR EC2 instances
-resource "aws_iam_role" "emr_ec2_role" {
-  name               = "EMR_EC2_DefaultRole"
-  assume_role_policy = jsonencode({
-    "Version": "2012-10-17",
-    "Statement": [
+
+# Create policy for S3 bucket access
+resource "aws_iam_policy" "emr_s3_policy" {
+  name        = "EMR_S3_Access_Policy"
+  description = "Policy to allow EMR cluster access to specific S3 buckets"
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
       {
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "ec2.amazonaws.com"
-        },
-        "Action": "sts:AssumeRole"
+        "Effect" : "Allow",
+        "Action" : "*",
+        "Resource" : "arn:aws:s3:::*"
       }
     ]
   })
+}
+
+# Attach the S3 access policy to the EMR EC2 role
+resource "aws_iam_role_policy_attachment" "emr_ec2_policy_attachment" {
+  role       = var.emr_ec2_service_role
+  policy_arn = aws_iam_policy.emr_s3_policy.arn
 }
 
 # Instance profile for EMR EC2 instances
 resource "aws_iam_instance_profile" "emr_ec2_instance_profile" {
   name = "EMR_EC2_DefaultInstanceProfile"
-  role =  aws_iam_role.emr_ec2_role.name
+  role = var.emr_ec2_service_role
 
 }
 
@@ -63,7 +53,35 @@ resource "aws_security_group" "emr_master" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["${local.my_public_ip}/32"]  # Allow SSH only from your IP
+    cidr_blocks = ["${local.my_public_ip}/32"] # Allow SSH only from your IP
+  }
+
+  ingress {
+    from_port   = 9870
+    to_port     = 9870
+    protocol    = "tcp"
+    cidr_blocks = ["${local.my_public_ip}/32"] # Allow SSH only from your IP
+  }
+
+  ingress {
+    from_port   = 8888
+    to_port     = 8888
+    protocol    = "tcp"
+    cidr_blocks = ["${local.my_public_ip}/32"] # Allow SSH only from your IP
+  }
+
+  ingress {
+    from_port   = 18080
+    to_port     = 18080
+    protocol    = "tcp"
+    cidr_blocks = ["${local.my_public_ip}/32"] # Allow SSH only from your IP
+  }
+
+  ingress {
+    from_port   = 9864
+    to_port     = 9864
+    protocol    = "tcp"
+    cidr_blocks = ["${local.my_public_ip}/32"] # Allow SSH only from your IP
   }
 
   egress {
@@ -83,7 +101,7 @@ resource "aws_security_group" "emr_slave" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["${local.my_public_ip}/32"]  # Allow SSH only from your IP
+    cidr_blocks = ["${local.my_public_ip}/32"]
   }
 
   egress {
@@ -94,16 +112,41 @@ resource "aws_security_group" "emr_slave" {
   }
 }
 
+# Allow all traffic from master to slave
+resource "aws_security_group_rule" "allow_master_to_slave" {
+  depends_on               = [aws_security_group.emr_slave, aws_security_group.emr_master]
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = aws_security_group.emr_slave.id
+  source_security_group_id = aws_security_group.emr_master.id
+}
+
+# Allow all traffic from slave to master
+resource "aws_security_group_rule" "allow_slave_to_master" {
+  depends_on               = [aws_security_group.emr_slave, aws_security_group.emr_master]
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = aws_security_group.emr_master.id
+  source_security_group_id = aws_security_group.emr_slave.id
+}
+
+
 resource "aws_emr_cluster" "emr_cluster" {
   name          = "emr-cluster"
   release_label = "emr-6.5.0"
-  applications  = ["Hadoop", "Hive", "Hue", "Spark", "Pig"]
+  applications  = ["Hadoop", "Hive", "Spark"]
 
-  service_role = aws_iam_role.emr_service_role.name
+  service_role = var.emr_service_role
+  log_uri      = var.logs_uri
+
 
   ec2_attributes {
-    key_name                         = var.key_name
-    instance_profile                 = aws_iam_instance_profile.emr_ec2_instance_profile.name
+    key_name                          = var.key_name
+    instance_profile                  = aws_iam_instance_profile.emr_ec2_instance_profile.name
     emr_managed_master_security_group = aws_security_group.emr_master.id
     emr_managed_slave_security_group  = aws_security_group.emr_slave.id
   }
@@ -113,27 +156,63 @@ resource "aws_emr_cluster" "emr_cluster" {
   }
 
   core_instance_group {
-    instance_type = var.core_instance_type
+    instance_type  = var.core_instance_type
     instance_count = var.core_instance_count
   }
 
-#   bootstrap_action {
-#     name = "Install libraries"
-#     path = "s3://my-bootstrap-bucket/install-libraries.sh"
-#   }
+  step {
+    name              = "Run PySpark Application"
+    action_on_failure = "CANCEL_AND_WAIT"
+    hadoop_jar_step {
+      jar = "command-runner.jar"
+      args = [
+        "spark-submit",
+        "--deploy-mode", "cluster",
+        var.pyspark_app_s3_path
+      ]
+    }
+  }
 
-#   configurations_json = <<EOF
-# [
-#   {
-#     "Classification": "hue-site",
-#     "Properties": {
-#       "hue.https.enabled": "false"
-#     }
-#   }
-# ]
-# EOF
+  configurations_json = <<EOF
+    [
+      {
+        "Classification": "yarn-site",
+        "Properties": {
+          "yarn.scheduler.maximum-allocation-mb": "4096",
+          "yarn.nodemanager.resource.memory-mb": "8192"
+        }
+      }
+    ]
+EOF
 
   tags = {
     Name = "emr-cluster-${var.environment}"
   }
+  lifecycle {
+    ignore_changes = [step]
+  }
+}
+
+
+resource "null_resource" "wait_for_step" {
+  provisioner "local-exec" {
+    command = <<EOT
+      #!/bin/bash
+      while true; do
+        step_id=$(aws emr list-steps --region us-east-1 --cluster-id ${aws_emr_cluster.emr_cluster.id} --query 'Steps[0].Id' --output text)
+        if [ -n "$step_id" ]; then
+          step_status=$(aws emr describe-step --region us-east-1 --cluster-id ${aws_emr_cluster.emr_cluster.id} --step-id "$step_id" --query 'Step.Status.State' --output text)
+          if [ "$step_status" == "COMPLETED" ] || [ "$step_status" == "FAILED" ] || [ "$step_status" == "CANCELLED" ]; then
+            echo "Step completed with status: $step_status"
+            exit 0
+          fi
+        else
+          echo "Step ID not available yet. Waiting..."
+        fi
+        sleep 30
+      done
+    EOT
+  }
+
+  depends_on = [aws_emr_cluster.emr_cluster]
 }
