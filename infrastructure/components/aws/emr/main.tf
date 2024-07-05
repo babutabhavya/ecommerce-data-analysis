@@ -114,7 +114,6 @@ resource "aws_security_group" "emr_slave" {
 
 # Allow all traffic from master to slave
 resource "aws_security_group_rule" "allow_master_to_slave" {
-  depends_on               = [aws_security_group.emr_slave, aws_security_group.emr_master]
   type                     = "ingress"
   from_port                = 0
   to_port                  = 0

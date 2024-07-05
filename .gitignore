@@ -43,3 +43,4 @@ terraform.rc
 .DS_Store
 
 **/private-key.pem
+infrastructure/components/aws/keys/private_key.pem

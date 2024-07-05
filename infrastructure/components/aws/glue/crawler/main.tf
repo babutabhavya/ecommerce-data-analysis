@@ -12,7 +12,7 @@ resource "aws_iam_policy" "glue_s3_access_policy" {
             "s3:GetObject",
             "s3:PutObject",
           ]
-          Resource = "arn:aws:s3:::${var.s3_bucket_name}/${var.bucket_folder}/*"
+          Resource = "arn:aws:s3:::${var.s3_bucket_name}${var.bucket_folder}*"
         },
         {
           "Effect" : "Allow",
@@ -112,12 +112,19 @@ resource "aws_iam_role_policy_attachment" "glue_s3_access_attachment" {
 }
 
 # Define Glue crawler to crawl the S3 bucket
-resource "aws_glue_crawler" "order_status_crawler" {
+resource "aws_glue_crawler" "my_crawler" {
   name          = "${var.name}-crawler"
   role          = var.service_role_name
   database_name = var.database_name
 
   s3_target {
-    path = "s3://${var.s3_bucket_name}/${var.bucket_folder}"
+    path = "s3://${var.s3_bucket_name}${var.bucket_folder}"
+  }
+}
+
+resource "null_resource" "run_crawler" {
+  depends_on = [aws_glue_crawler.my_crawler]
+  provisioner "local-exec" {
+    command = "aws glue start-crawler --name ${aws_glue_crawler.my_crawler.name} --region us-east-1"
   }
 }

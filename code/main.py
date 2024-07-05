@@ -68,5 +68,5 @@ def main(bucket: str) -> None:
 
 
 if __name__ == "__main__":
-    BUCKET = "data-analysis-ecommerce"
+    BUCKET = "data-analysis-ecommerce-1"
     main(BUCKET)

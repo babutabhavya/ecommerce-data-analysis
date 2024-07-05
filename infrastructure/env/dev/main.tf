@@ -24,13 +24,13 @@ module "key" {
 
 module "data_analysis_data_store" {
   source      = "../../components/aws/s3"
-  bucket_name = "data-analysis-ecommerce"
+  bucket_name = "data-analysis-ecommerce-1"
   environment = var.environment
 }
 
 module "emr_bucket_logs" {
   source      = "../../components/aws/s3"
-  bucket_name = "emr-logs-data-analysis"
+  bucket_name = "emr-logs-data-analysis-1"
   environment = var.environment
 }
 
@@ -42,7 +42,7 @@ module "dataset-obj" {
   obj_source = "${path.module}/files/olist_public_dataset.csv"
 }
 
-module "emr-output-obj" {
+module "emr_output_obj" {
   source     = "../../components/aws/s3/s3_object"
   depends_on = [module.data_analysis_data_store]
   s3_bucket  = module.data_analysis_data_store.bucket_id
@@ -50,7 +50,7 @@ module "emr-output-obj" {
   obj_source = ""
 }
 
-module "emr-pyspark-code-obj" {
+module "emr_pyspark_code_obj" {
   source     = "../../components/aws/s3/s3_object"
   depends_on = [module.data_analysis_data_store]
   s3_bucket  = module.data_analysis_data_store.bucket_id
@@ -93,7 +93,6 @@ module "emr_ec2_service_role" {
 }
 
 module "emr" {
-  depends_on           = [module.emr_bucket_logs, module.data_analysis_data_store, module.key, module.emr-output-obj, module.emr-pyspark-code-obj, module.emr_service_role]
   source               = "../../components/aws/emr"
   environment          = var.environment
   key_name             = module.key.private_key_name
@@ -127,7 +126,7 @@ module "glue_crawler_service_policy" {
 module "glue_orderstatusgroupedbycityandday" {
   source            = "../../components/aws/glue/crawler"
   depends_on        = [module.emr, module.glue_catalog_database, module.glue_crawler_service_policy]
-  bucket_folder     = "orderstatusgroupedbycityandday.parquet/"
+  bucket_folder     = "/${module.emr_output_obj.key}orderstatusgroupedbycityandday.parquet/"
   s3_bucket_name    = module.data_analysis_data_store.bucket_id
   database_name     = module.glue_catalog_database.name
   name              = "orderstatusgroupedbycityandday"
@@ -137,7 +136,7 @@ module "glue_orderstatusgroupedbycityandday" {
 module "glue_orderstatusgroupedbycityandweek" {
   source            = "../../components/aws/glue/crawler"
   depends_on        = [module.emr, module.glue_catalog_database, module.glue_crawler_service_policy]
-  bucket_folder     = "orderstatusgroupedbycityandweek.parquet/"
+  bucket_folder     = "/${module.emr_output_obj.key}orderstatusgroupedbycityandweek.parquet/"
   s3_bucket_name    = module.data_analysis_data_store.bucket_id
   database_name     = module.glue_catalog_database.name
   name              = "orderstatusgroupedbycityandweek"
@@ -147,7 +146,7 @@ module "glue_orderstatusgroupedbycityandweek" {
 module "glue_orderstatusgroupedbystateandday" {
   source            = "../../components/aws/glue/crawler"
   depends_on        = [module.emr, module.glue_catalog_database, module.glue_crawler_service_policy]
-  bucket_folder     = "orderstatusgroupedbystateandday.parquet/"
+  bucket_folder     = "/${module.emr_output_obj.key}orderstatusgroupedbystateandday.parquet/"
   s3_bucket_name    = module.data_analysis_data_store.bucket_id
   database_name     = module.glue_catalog_database.name
   name              = "orderstatusgroupedbystateandday"
@@ -157,7 +156,7 @@ module "glue_orderstatusgroupedbystateandday" {
 module "glue_orderstatusgroupedbystateandweek" {
   source            = "../../components/aws/glue/crawler"
   depends_on        = [module.emr, module.glue_catalog_database, module.glue_crawler_service_policy]
-  bucket_folder     = "orderstatusgroupedbystateandweek.parquet/"
+  bucket_folder     = "/${module.emr_output_obj.key}orderstatusgroupedbystateandweek.parquet/"
   s3_bucket_name    = module.data_analysis_data_store.bucket_id
   database_name     = module.glue_catalog_database.name
   name              = "orderstatusgroupedbystateandweek"
