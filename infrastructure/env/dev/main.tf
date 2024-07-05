@@ -14,14 +14,6 @@ module "key" {
 
 }
 
-# module "ec2" {
-#   depends_on = [ module.key ]
-#   source           = "../../components/aws/ec2"
-#   environment      = var.environment
-#   instance_type    = var.instance_type
-#   private_key_name = module.key.private_key_name
-# }
-
 module "data_analysis_data_store" {
   source      = "../../components/aws/s3"
   bucket_name = "data-analysis-ecommerce-1"
@@ -96,7 +88,7 @@ module "emr" {
   source               = "../../components/aws/emr"
   environment          = var.environment
   key_name             = module.key.private_key_name
-  logs_uri             = "s3://${module.emr_bucket_logs.bucket_id}"
+  logs_uri             = "s3n://${module.emr_bucket_logs.bucket_id}/"
   pyspark_app_s3_path  = "s3://${module.data_analysis_data_store.bucket_id}/main.py"
   emr_service_role     = module.emr_service_role.name
   emr_ec2_service_role = module.emr_ec2_service_role.name
@@ -161,4 +153,17 @@ module "glue_orderstatusgroupedbystateandweek" {
   database_name     = module.glue_catalog_database.name
   name              = "orderstatusgroupedbystateandweek"
   service_role_name = module.glue_crawler_service_policy.name
+}
+
+resource "aws_quicksight_account_subscription" "subscription" {
+  account_name          = "698696682041"
+  authentication_method = "IAM_AND_QUICKSIGHT"
+  edition               = "STANDARD"
+  notification_email    = "notification@email.com"
+}
+
+module "quicksight_user" {
+  depends_on = [aws_quicksight_account_subscription.subscription]
+  source     = "../../components/aws/quicksight/user"
+  email      = "babutabhavya@gmail.com"
 }

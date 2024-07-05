@@ -87,7 +87,7 @@ resource "aws_security_group" "emr_master" {
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
+    protocol    = "all"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -100,14 +100,14 @@ resource "aws_security_group" "emr_slave" {
   ingress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
+    protocol    = "all"
     cidr_blocks = ["${local.my_public_ip}/32"]
   }
 
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"
+    protocol    = "all"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -117,7 +117,7 @@ resource "aws_security_group_rule" "allow_master_to_slave" {
   type                     = "ingress"
   from_port                = 0
   to_port                  = 0
-  protocol                 = "-1"
+  protocol                 = "all"
   security_group_id        = aws_security_group.emr_slave.id
   source_security_group_id = aws_security_group.emr_master.id
 }
@@ -128,7 +128,7 @@ resource "aws_security_group_rule" "allow_slave_to_master" {
   type                     = "ingress"
   from_port                = 0
   to_port                  = 0
-  protocol                 = "-1"
+  protocol                 = "all"
   security_group_id        = aws_security_group.emr_master.id
   source_security_group_id = aws_security_group.emr_slave.id
 }
@@ -188,7 +188,7 @@ EOF
     Name = "emr-cluster-${var.environment}"
   }
   lifecycle {
-    ignore_changes = [step]
+    ignore_changes = [step, ec2_attributes]
   }
 }
 
